@@ -9,6 +9,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Change current working directory to project root for consistent relative paths
 os.chdir(PROJECT_ROOT)
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "threads;1"
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
 
 import time
 import json
@@ -20,6 +22,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, List, Optional, Tuple, Any
 
 import cv2
+cv2.setNumThreads(1)
 import numpy as np
 import torch
 from ultralytics import YOLO

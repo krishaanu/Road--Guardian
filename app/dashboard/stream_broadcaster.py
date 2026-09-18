@@ -1,8 +1,12 @@
 import os
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "threads;1"
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+
 import json
 import time
 import threading
 import cv2
+cv2.setNumThreads(1)
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional, Set

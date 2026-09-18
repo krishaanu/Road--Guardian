@@ -1,4 +1,7 @@
 import os
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "threads;1"
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+
 import sys
 import time
 import json
@@ -6,6 +9,7 @@ import uuid
 import asyncio
 import sqlite3
 import cv2
+cv2.setNumThreads(1)
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
@@ -46,6 +50,7 @@ offense_pipeline = ConfidenceGatedOffensePipeline()
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Initializing RoadGuardian ITS Dashboard Server...")
+    broadcaster.load_cameras()
     broadcaster.loop = asyncio.get_running_loop()
     broadcaster.start()
     yield
