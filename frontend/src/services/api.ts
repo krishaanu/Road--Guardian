@@ -49,7 +49,10 @@ async function safeFetchJson<T = any>(url: string, options?: RequestInit): Promi
   try {
     return JSON.parse(text) as T;
   } catch (e) {
-    throw new Error('Failed to parse response JSON payload');
+    if (text.startsWith('<') || text.includes('<html')) {
+      throw new Error(`Endpoint returned HTML page instead of JSON: ${url}`);
+    }
+    throw new Error(`Invalid JSON response: ${text.slice(0, 80)}`);
   }
 }
 

@@ -866,6 +866,25 @@ async def generate_mjpeg_stream(camera_id: str):
         logger.info(f"[STREAM_END] camera_id='{camera_id}' stream generator completed.")
 
 
+def generate_fallback_stream(camera_id: str, message: str):
+    """Generates continuous fallback frame stream for uninitialized/offline cameras."""
+    blank = np.zeros((360, 640, 3), dtype=np.uint8)
+    cv2.rectangle(blank, (10, 10), (630, 350), (0, 0, 180), 2)
+    cv2.putText(blank, f"FEED OFFLINE: {camera_id}", (30, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 100, 255), 2)
+    cv2.putText(blank, str(message)[:50], (30, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+    _, encoded = cv2.imencode(".jpg", blank, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+    err_bytes = encoded.tobytes()
+
+    header = (
+        b"--frame\r\n"
+        b"Content-Type: image/jpeg\r\n"
+        b"Content-Length: " + str(len(err_bytes)).encode() + b"\r\n\r\n"
+    )
+    while True:
+        yield header + err_bytes + b"\r\n"
+        time.sleep(0.5)
+
+
 @app.get("/api/stream/{camera_id}")
 async def stream_video(camera_id: str):
     """Streams live camera video as an MJPEG multipart response for HTML <img> tags."""
@@ -876,21 +895,21 @@ async def stream_video(camera_id: str):
         cam_info = broadcaster.cameras.get(camera_id)
 
     if not cam_info:
-        logger.warning(f"[STREAM_NOT_FOUND] camera_id='{camera_id}' is not in registry.")
-        raise HTTPException(
-            status_code=404,
-            detail=f"Camera ID '{camera_id}' is not registered."
+        logger.warning(f"[STREAM_NOT_FOUND] camera_id='{camera_id}' is not in registry, returning fallback stream.")
+        return StreamingResponse(
+            generate_fallback_stream(camera_id, "Camera not registered in backend"),
+            media_type="multipart/x-mixed-replace; boundary=frame",
         )
 
     # Check / attempt opening the stream
     cap = broadcaster._get_or_open_cap(camera_id, cam_info)
     if not cap or not cap.isOpened():
         diag = broadcaster.diagnostics.get(camera_id, {})
-        reason = diag.get("reason", "Camera stream cannot be decoded or device is unavailable.")
-        logger.warning(f"[STREAM_UNAVAILABLE] camera_id='{camera_id}', reason={reason}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Stream unavailable for {camera_id}: {reason}"
+        reason = diag.get("reason", "Camera source cannot be decoded or is offline.")
+        logger.warning(f"[STREAM_UNAVAILABLE] camera_id='{camera_id}', reason={reason}, returning fallback stream.")
+        return StreamingResponse(
+            generate_fallback_stream(camera_id, reason),
+            media_type="multipart/x-mixed-replace; boundary=frame",
         )
 
     logger.info(f"[STREAM_OPENED] camera_id='{camera_id}' streaming starting...")

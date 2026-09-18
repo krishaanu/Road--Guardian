@@ -729,17 +729,20 @@ async def fetch_latest_observations(
 
 @app.get("/api/stream/{camera_id}")
 async def stream_feed(camera_id: str):
-    """Streams MJPEG feed per camera thread."""
+    """Returns dynamic MJPEG stream or annotated fallback frame for invalid cameras."""
     def generate_frames():
         blank_frame = np.zeros((360, 640, 3), dtype=np.uint8)
-        cv2.putText(blank_frame, f"INITIALIZING FEED: {camera_id}", (80, 180), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        cv2.rectangle(blank_frame, (10, 10), (630, 350), (0, 0, 180), 2)
+        cv2.putText(blank_frame, f"FEED OFFLINE: {camera_id}", (30, 160), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 100, 255), 2)
+        cv2.putText(blank_frame, "Check backend process or camera source path", (30, 200), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
         _, blank_jpeg = cv2.imencode(".jpg", blank_frame)
         fallback_bytes = blank_jpeg.tobytes()
 
         while True:
             try:
-                frame_data = latest_frames.get(camera_id) or latest_frames.get("DEFAULT") or fallback_bytes
+                frame_data = latest_frames.get(camera_id) or fallback_bytes
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
                 time.sleep(0.033)
