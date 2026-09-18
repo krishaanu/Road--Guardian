@@ -26,7 +26,7 @@ cv2.setNumThreads(1)
 import numpy as np
 import torch
 from ultralytics import YOLO
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -472,31 +472,35 @@ async def root_healthcheck():
 
 @app.post("/api/upload_video")
 async def upload_video_file(
-    camera_id: Optional[str] = Query("LANE_1"),
+    camera_id: Optional[str] = Query(None),
+    lane_id: Optional[str] = Form(None),
     file: UploadFile = File(...)
 ):
-    """Saves uploaded files to camera-specific disk path and returns file path for thread binding."""
+    """
+    Bulletproof upload handler. Accepts camera_id from query or form body.
+    """
     try:
-        cam_id = (camera_id or "LANE_1").strip()
-        target_dir = os.path.join("uploads", cam_id).replace("\\", "/")
+        target_id = (camera_id or lane_id or "DEFAULT_LANE").strip()
+        target_dir = os.path.join("uploads", target_id).replace("\\", "/")
         os.makedirs(target_dir, exist_ok=True)
-        clean_name = file.filename.replace(" ", "_").replace("\\", "/")
-        unique_filename = f"{uuid.uuid4().hex[:8]}_{clean_name}"
-        destination_path = os.path.join(target_dir, unique_filename).replace("\\", "/")
-        
+
+        clean_filename = file.filename.replace(" ", "_")
+        unique_name = f"{uuid.uuid4().hex[:8]}_{clean_filename}"
+        destination_path = os.path.join(target_dir, unique_name).replace("\\", "/")
+
         with open(destination_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        res_info = resolve_camera_source(destination_path)
+        logger.info(f"Successfully saved uploaded video to: {destination_path}")
         return {
             "status": "success",
             "file_path": destination_path,
-            "camera_id": cam_id,
-            "source_type": res_info.get("source_type", "file")
+            "filename": file.filename,
+            "camera_id": target_id
         }
     except Exception as e:
-        logger.error(f"Upload error: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload error: {str(e)}")
+        logger.error(f"Upload processing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"File save error: {str(e)}")
 
 
 @app.get("/api/cameras")

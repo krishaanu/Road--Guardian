@@ -30,9 +30,11 @@ export const JunctionSimulator: React.FC = () => {
   }, []);
 
   const handleFileUpload = async (laneId: string, file: File) => {
+    if (!file) return;
     setUploadingLane(laneId);
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('lane_id', laneId);
 
     try {
       let uploadRes;
@@ -49,7 +51,11 @@ export const JunctionSimulator: React.FC = () => {
       }
       const uploadData = await uploadRes.json();
 
-      if (uploadData.status === 'success') {
+      if (!uploadRes.ok || uploadData.status !== 'success') {
+        throw new Error(uploadData.detail || 'Upload failed');
+      }
+
+      if (uploadData.status === 'success' && uploadData.file_path) {
         try {
           await fetch('/api/cameras/add', {
             method: 'POST',
@@ -72,7 +78,7 @@ export const JunctionSimulator: React.FC = () => {
         setActiveFeeds((prev) => ({ ...prev, [laneId]: true }));
       }
     } catch (err) {
-      console.error('Upload failed:', err);
+      console.error('File upload error:', err);
     } finally {
       setUploadingLane(null);
     }
