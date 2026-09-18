@@ -15,22 +15,9 @@
     },
     {
       "id": "SIM_JUNCTION_01_LANE_1",
-      "name": "Junction 1 - Approach Lane 1 (Expressway)",
-      "location_name": "Main Expressway Interchange",
-      "source": "uploads/WhatsApp_Video_2026-09-17_at_19.25.30.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Northbound",
-      "enabled": true
-    },
-    {
-      "id": "SIM_JUNCTION_01_LANE_2",
-      "name": "Junction 1 - Approach Lane 2 (Mid Corridor)",
-      "location_name": "Main Expressway Interchange",
-      "source": "uploads/WhatsApp_Video_2026-09-17_at_19.15.03.mp4",
+      "name": "Main Expressway Interchange (Junction 1) - LANE_1",
+      "location_name": "Sector Corridor (SIM_JUNCTION_01_LANE_1)",
+      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_1/0a4ff6f3_WhatsApp_Video_2026-09-17_at_19.30.55.mp4",
       "source_type": "file",
       "gps": [
         25.2914,
@@ -41,9 +28,9 @@
     },
     {
       "id": "SIM_JUNCTION_01_LANE_3",
-      "name": "Junction 1 - Approach Lane 3 (Cross Avenue)",
-      "location_name": "Main Expressway Interchange",
-      "source": "uploads/WhatsApp_Video_2026-09-17_at_19.30.55.mp4",
+      "name": "Main Expressway Interchange (Junction 1) - LANE_3",
+      "location_name": "Sector Corridor (SIM_JUNCTION_01_LANE_3)",
+      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_3/ac568dc4_WhatsApp_Video_2026-09-17_at_19.15.03.mp4",
       "source_type": "file",
       "gps": [
         25.2914,
@@ -53,10 +40,23 @@
       "enabled": true
     },
     {
-      "id": "CAM_UP_6621",
-      "name": "Uploaded Corridor Video",
-      "location_name": "Upload: WhatsApp Video",
-      "source": "data/uploads/d182a100_WhatsApp_Video_2026-09-17_at_19.15.03.mp4",
+      "id": "LANE_1",
+      "name": "Uploaded Video (WhatsApp Video 2026-09-17 at 19.30.55.mp4)",
+      "location_name": "Upload: WhatsApp Video 2026-09-17 at 19.30.55.mp4",
+      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_1/0a4ff6f3_WhatsApp_Video_2026-09-17_at_19.30.55.mp4",
+      "source_type": "file",
+      "gps": [
+        25.2914,
+        79.8713
+      ],
+      "direction_covered": "Bidirectional",
+      "enabled": true
+    },
+    {
+      "id": "LANE_2",
+      "name": "Uploaded Video (WhatsApp Video 2026-09-17 at 19.25.30.mp4)",
+      "location_name": "Upload: WhatsApp Video 2026-09-17 at 19.25.30.mp4",
+      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_2/784d9c91_WhatsApp_Video_2026-09-17_at_19.25.30.mp4",
       "source_type": "file",
       "gps": [
         25.2914,

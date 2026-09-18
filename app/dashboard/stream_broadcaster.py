@@ -67,6 +67,7 @@ class StreamBroadcaster:
 
         # Signal states per camera
         self.signal_states: Dict[str, Dict[str, Any]] = {}
+        self.pending_reloads: Set[str] = set()
 
         self.load_cameras()
 
@@ -105,28 +106,22 @@ class StreamBroadcaster:
                 logger.error(f"Error saving cameras to {self.config_path}: {e}")
 
     def add_camera(self, camera_data: Dict[str, Any]):
-        """Registers and initializes a new camera source, releasing any existing handle for seamless stream swap."""
+        """Registers and initializes a new camera source, queuing reload for capture thread."""
         cid = camera_data["id"]
         with self.lock:
-            if cid in self.caps:
-                release_capture_handle(self.caps[cid])
-                del self.caps[cid]
-            self.latest_frames.pop(cid, None)
-            self.camera_tracks.pop(cid, None)
-            self.frame_counters.pop(cid, None)
-            self.diagnostics.pop(cid, None)
-
             self.cameras[cid] = camera_data
-            self.signal_states[cid] = {
-                "camera_id": cid,
-                "current_light": "GREEN",
-                "countdown": 30,
-                "cycle_duration": 30,
-                "recommended_green": 30,
-                "mode": "AI_ADAPTIVE",
-                "los": "LOS A",
-                "density": 6.0,
-            }
+            self.pending_reloads.add(cid)
+            if cid not in self.signal_states:
+                self.signal_states[cid] = {
+                    "camera_id": cid,
+                    "current_light": "GREEN",
+                    "countdown": 30,
+                    "cycle_duration": 30,
+                    "recommended_green": 30,
+                    "mode": "AI_ADAPTIVE",
+                    "los": "LOS A",
+                    "density": 6.0,
+                }
         self.save_cameras()
 
     def is_camera_streaming(self, cid: str) -> bool:
@@ -135,16 +130,12 @@ class StreamBroadcaster:
             return cid in self.caps and self.caps[cid] is not None and self.caps[cid].isOpened()
 
     def remove_camera(self, camera_id: str):
-        """Removes a camera source and safely cleans up video capture and tracking state."""
+        """Removes a camera source and queues capture handle release on the worker thread."""
         with self.lock:
-            if camera_id in self.cameras:
-                del self.cameras[camera_id]
-            if camera_id in self.caps:
-                release_capture_handle(self.caps[camera_id])
-                del self.caps[camera_id]
-            self.latest_frames.pop(camera_id, None)
+            self.cameras.pop(camera_id, None)
+            self.pending_reloads.add(camera_id)
             self.signal_states.pop(camera_id, None)
-            self.subtractors.pop(camera_id, None)
+            self.latest_frames.pop(camera_id, None)
             self.camera_tracks.pop(camera_id, None)
             self.next_track_ids.pop(camera_id, None)
             self.frame_counters.pop(camera_id, None)
@@ -558,6 +549,18 @@ class StreamBroadcaster:
         """Continuously reads frames from active camera feeds, annotates them, and caches JPEG buffers."""
         while self.running:
             start_time = time.time()
+            with self.lock:
+                to_reload = list(self.pending_reloads)
+                self.pending_reloads.clear()
+            for rcid in to_reload:
+                with self.lock:
+                    if rcid in self.caps:
+                        release_capture_handle(self.caps[rcid])
+                        del self.caps[rcid]
+                    self.latest_frames.pop(rcid, None)
+                    self.camera_tracks.pop(rcid, None)
+                    self.frame_counters.pop(rcid, None)
+
             with self.lock:
                 active_cams = list(self.cameras.items())
 

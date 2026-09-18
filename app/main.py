@@ -84,6 +84,20 @@ lane_special_vehicles: Dict[str, bool] = {}
 stream_errors: Dict[str, str] = {}
 active_alerts: List[Dict[str, Any]] = []
 
+def stop_and_release_camera(camera_id: str):
+    """Safely terminates active camera worker thread and closes hardware capture handle."""
+    if camera_id in active_camera_threads:
+        active_camera_threads[camera_id] = False
+    cap = active_captures.pop(camera_id, None)
+    if cap:
+        try:
+            release_capture_handle(cap)
+        except Exception as e:
+            logger.warning(f"Error releasing capture handle for {camera_id}: {e}")
+    latest_frames.pop(camera_id, None)
+    active_camera_counts.pop(camera_id, None)
+    stream_errors.pop(camera_id, None)
+
 # Shared YOLO Model Singleton
 _yolo_model = None
 _yolo_lock = threading.Lock()
@@ -258,9 +272,6 @@ def process_camera_stream(camera_id: str, raw_source: str):
                             active_scoped_keys.append(scoped_key)
                             x1, y1, x2, y2 = map(int, box)
 
-                            if cls_id in SPECIAL_VEHICLE_CLASSES:
-                                has_special = True
-
                             frame_counts[track_id] = frame_counts.get(track_id, 0) + 1
 
                             # Kalman Filter & Speed Estimation
@@ -298,6 +309,10 @@ def process_camera_stream(camera_id: str, raw_source: str):
                             attr = track_attributes[scoped_key]
                             attr["last_seen"] = current_time
 
+                            # Only flag emergency if specifically classified as ambulance
+                            if attr.get("subtype", "").lower() == "ambulance":
+                                has_special = True
+
                             tracked_obj = global_cross_camera_tracker.update_track(
                                 camera_id=camera_id,
                                 local_track_id=track_id,
@@ -305,6 +320,13 @@ def process_camera_stream(camera_id: str, raw_source: str):
                                 category=attr["subtype"]
                             )
                             gvid = tracked_obj.gvid
+
+                            # Draw Orange Trajectory Trail on Frame
+                            pts = trajectories[scoped_key]
+                            if len(pts) > 1:
+                                for i in range(1, len(pts)):
+                                    cv2.line(frame, pts[i - 1], pts[i], (0, 140, 255), 2, cv2.LINE_AA)
+                                    cv2.circle(frame, pts[i], 2, (0, 140, 255), -1)
 
                             # Draw Green Bounding Box & Unified Tag directly on frame
                             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -575,9 +597,8 @@ async def register_camera_stream(payload: AddCameraPayload):
     if not cam_id or not src:
         raise HTTPException(status_code=400, detail="Camera ID and source path required.")
 
-    if cam_id in active_camera_threads:
-        active_camera_threads[cam_id] = False
-        time.sleep(0.1)
+    stop_and_release_camera(cam_id)
+    time.sleep(0.1)
 
     # Save to config/cameras.json
     config_path = "config/cameras.json"
@@ -633,13 +654,7 @@ async def register_camera_stream(payload: AddCameraPayload):
 @app.post("/api/cameras/{camera_id}/delete")
 async def remove_camera_stream(camera_id: str):
     """Stops analytics thread and clears feed buffer."""
-    if camera_id in active_camera_threads:
-        active_camera_threads[camera_id] = False
-        latest_frames.pop(camera_id, None)
-
-    if camera_id in active_captures:
-        release_capture_handle(active_captures[camera_id])
-        active_captures.pop(camera_id, None)
+    stop_and_release_camera(camera_id)
 
     config_path = "config/cameras.json"
     if os.path.exists(config_path):
@@ -669,9 +684,8 @@ async def retry_camera_stream(camera_id: str):
     if not cam_info:
         raise HTTPException(status_code=404, detail=f"Camera {camera_id} not registered")
 
-    if camera_id in active_camera_threads:
-        active_camera_threads[camera_id] = False
-        time.sleep(0.1)
+    stop_and_release_camera(camera_id)
+    time.sleep(0.1)
 
     t = threading.Thread(target=process_camera_stream, args=(camera_id, cam_info["source"]), daemon=True)
     t.start()
