@@ -1,18 +1,27 @@
+import sys
 import os
+from pathlib import Path
+
+# Dynamically resolve project root directory and add to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Change current working directory to project root for consistent relative paths
+os.chdir(PROJECT_ROOT)
+
+import time
 import json
 import logging
-import sys
-import time
+import uuid
 import shutil
 import threading
-import asyncio
-import uuid
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 import cv2
 import numpy as np
+import torch
 from ultralytics import YOLO
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,9 +29,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-# Resolve root directory path for direct CLI execution
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
+# Internal module imports (now resolved cleanly from PROJECT_ROOT)
 from app.analytics.collision_detector import evaluate_impact_event
 from app.analytics.incident_fusion import IncidentFusionEngine
 from app.analytics.long_term_aggregator import LongTermTrafficAggregator
