@@ -186,8 +186,10 @@ def process_camera_stream(camera_id: str, raw_source: str):
     stationary_timers: Dict[Tuple[str, int], float] = {}
     track_attributes: Dict[Tuple[str, int], Dict[str, Any]] = {}
     frame_counts: Dict[int, int] = {}
+    frame_counter = 0
 
     last_frame_time = time.time()
+    last_boxes_data: List[Tuple[Any, int, str, float]] = []
 
     consecutive_read_failures = 0
     try:
@@ -211,10 +213,11 @@ def process_camera_stream(camera_id: str, raw_source: str):
                     speeds.clear()
                     track_attributes.clear()
                     frame_counts.clear()
-                    time.sleep(0.033)
+                    last_boxes_data.clear()
+                    time.sleep(0.02)
                     continue
                 else:
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                     if consecutive_read_failures > 30:
                         logger.error(f"Live camera stream {camera_id} disconnected after 30 read failures.")
                         stream_errors[camera_id] = "Camera stream disconnected or source unavailable"
@@ -222,6 +225,7 @@ def process_camera_stream(camera_id: str, raw_source: str):
                     continue
 
             consecutive_read_failures = 0
+            frame_counter += 1
 
             h, w = frame.shape[:2]
 
@@ -231,7 +235,8 @@ def process_camera_stream(camera_id: str, raw_source: str):
             alerts: List[str] = []
             has_special = False
 
-            if vehicle_model is not None:
+            # Run heavy YOLO tracking every 2nd frame to keep inference lightweight and smooth
+            if vehicle_model is not None and (frame_counter % 2 == 0 or len(last_boxes_data) == 0):
                 try:
                     with _yolo_lock:
                         results = vehicle_model.track(
@@ -240,8 +245,8 @@ def process_camera_stream(camera_id: str, raw_source: str):
                             tracker="bytetrack.yaml",
                             classes=[1, 2, 3, 5, 7],
                             conf=0.20,
-                            iou=0.50,
-                            imgsz=640,
+                            iou=0.45,
+                            imgsz=480,
                             agnostic_nms=True,
                             verbose=False,
                             device=torch_device,
@@ -251,9 +256,9 @@ def process_camera_stream(camera_id: str, raw_source: str):
                     if torch_device != "cpu":
                         torch_device = "cpu"
                     preview_frame = cv2.resize(frame, (640, 360))
-                    _, jpeg = cv2.imencode(".jpg", preview_frame)
+                    _, jpeg = cv2.imencode(".jpg", preview_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
                     latest_frames[camera_id] = jpeg.tobytes()
-                    time.sleep(0.033)
+                    time.sleep(0.02)
                     continue
 
                 try:
@@ -271,6 +276,7 @@ def process_camera_stream(camera_id: str, raw_source: str):
                             else np.ones(len(boxes)) * 0.8
                         )
 
+                        new_boxes_data = []
                         for box, track_id, cls_id, conf_val in zip(boxes, track_ids, class_ids, confs):
                             cls_id = int(cls_id)
                             track_id = int(track_id)
@@ -292,7 +298,7 @@ def process_camera_stream(camera_id: str, raw_source: str):
                             if scoped_key not in trajectories:
                                 trajectories[scoped_key] = []
                             trajectories[scoped_key].append(smoothed_anchor_pt)
-                            if len(trajectories[scoped_key]) > 16:
+                            if len(trajectories[scoped_key]) > 10:
                                 trajectories[scoped_key].pop(0)
 
                             base_type = CLASS_NAME_MAP.get(cls_id, "car")
@@ -326,18 +332,7 @@ def process_camera_stream(camera_id: str, raw_source: str):
                                 category=attr["subtype"]
                             )
                             gvid = tracked_obj.gvid
-
-                            # Draw Orange Trajectory Trail on Frame
-                            pts = trajectories[scoped_key]
-                            if len(pts) > 1:
-                                for i in range(1, len(pts)):
-                                    cv2.line(frame, pts[i - 1], pts[i], (0, 140, 255), 2, cv2.LINE_AA)
-                                    cv2.circle(frame, pts[i], 2, (0, 140, 255), -1)
-
-                            # Draw Green Bounding Box & Unified Tag directly on frame
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                            tag_label = f"{gvid} | {speed_display}"
-                            cv2.putText(frame, tag_label, (x1, max(y1 - 8, 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2, cv2.LINE_AA)
+                            new_boxes_data.append((box, track_id, gvid, speed_display, attr["subtype"], conf_val))
 
                             # Deduplicated Database Upsert (rate-limited to 2.0s per vehicle)
                             if current_time - attr["last_db_sync"] >= 2.0:
@@ -369,8 +364,47 @@ def process_camera_stream(camera_id: str, raw_source: str):
                                 "speed_display": speed_display,
                                 "timestamp": current_time,
                             }
+                        last_boxes_data = new_boxes_data
                 except Exception as track_err:
                     logger.warning(f"Tracking error on {camera_id}: {track_err}")
+            else:
+                # Use cached active boxes for skipped frames
+                for item in last_boxes_data:
+                    box, track_id, gvid, speed_display, subtype, conf_val = item
+                    scoped_key = (camera_id, track_id)
+                    active_scoped_keys.append(scoped_key)
+                    x1, y1, x2, y2 = map(int, box)
+                    anchor_pt = (int((x1 + x2) / 2), int(y2))
+                    speed_kmh = speeds.get(scoped_key, 0.0)
+                    active_tracks_summary[track_id] = {
+                        "track_id": track_id,
+                        "gvid": gvid,
+                        "class": subtype.lower(),
+                        "category": subtype,
+                        "color": "UNKNOWN",
+                        "view_angle": "Front",
+                        "confidence": round(float(conf_val), 2),
+                        "bbox": [x1, y1, x2, y2],
+                        "center": anchor_pt,
+                        "speed_kmh": round(speed_kmh, 1),
+                        "speed_display": speed_display,
+                        "timestamp": current_time,
+                    }
+
+            # Draw Bounding Boxes on current frame
+            for item in last_boxes_data:
+                box, track_id, gvid, speed_display, subtype, _ = item
+                x1, y1, x2, y2 = map(int, box)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                tag_label = f"ID:{track_id} | {speed_display}"
+                cv2.putText(frame, tag_label, (x1, max(y1 - 8, 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2, cv2.LINE_AA)
+
+            # Draw Orange Trajectory Trails on Frame
+            for scoped_key, pts in trajectories.items():
+                if scoped_key[0] == camera_id and len(pts) > 1:
+                    for i in range(1, len(pts)):
+                        cv2.line(frame, pts[i - 1], pts[i], (0, 140, 255), 2, cv2.LINE_AA)
+                        cv2.circle(frame, pts[i], 2, (0, 140, 255), -1)
 
             # Prune stale tracks from attributes cache (> 6.0s lost)
             stale_attr_keys = [k for k, v in track_attributes.items() if (current_time - v.get("last_seen", 0.0)) > 6.0]
@@ -379,11 +413,6 @@ def process_camera_stream(camera_id: str, raw_source: str):
                 trajectories.pop(sk, None)
                 speeds.pop(sk, None)
                 frame_counts.pop(sk[1], None)
-
-            # Draw visual trajectories and dynamic overlay text
-            active_trajectories = {k[1]: v for k, v in trajectories.items() if k in active_scoped_keys}
-            active_speeds = {k[1]: v for k, v in speeds.items() if k in active_scoped_keys}
-            frame = draw_trajectories_and_events(frame, active_trajectories, active_speeds, drifting_ids, alerts)
 
             # Update vehicle count telemetry and live state manager
             detected_count = len(active_scoped_keys)
@@ -404,6 +433,9 @@ def process_camera_stream(camera_id: str, raw_source: str):
                     lane_special_vehicles[lane_id] = has_special
                     allocator.update_density(lane_id, detected_count, has_special)
 
+            active_trajectories = {k[1]: v for k, v in trajectories.items() if k in active_scoped_keys}
+            active_speeds = {k[1]: v for k, v in speeds.items() if k in active_scoped_keys}
+
             live_state_manager.update_camera(
                 camera_id=camera_id,
                 vehicle_count=detected_count,
@@ -413,15 +445,15 @@ def process_camera_stream(camera_id: str, raw_source: str):
                 emergency_active=has_special,
             )
 
-            # Encode ANNOTATED frame for streaming (DO NOT ENCODE RAW UNANNOTATED FRAME)
+            # Encode frame for streaming
             preview_frame = cv2.resize(frame, (640, 360))
-            success, encoded_img = cv2.imencode(".jpg", preview_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+            success, encoded_img = cv2.imencode(".jpg", preview_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
             if success:
                 latest_frames[camera_id] = encoded_img.tobytes()
                 if camera_id == "CAMERA_01" or len(latest_frames) == 1:
                     latest_frames["DEFAULT"] = encoded_img.tobytes()
 
-            time.sleep(0.033)
+            time.sleep(0.02)
 
     except Exception as err:
         logger.error(f"Camera stream thread {camera_id} encountered exception: {err}", exc_info=True)
@@ -909,6 +941,14 @@ async def acknowledge_incident_endpoint(incident_id: str):
     except Exception as e:
         logger.error(f"Error acknowledging incident {incident_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to acknowledge incident.")
+
+
+@app.post("/api/signals/preempt")
+async def trigger_emergency_preemption(lane_id: str = Query(...)):
+    """Forces immediate green light preemption for the specified lane."""
+    allocator.update_density(lane_id, vehicle_count=99, has_special_vehicle=True)
+    allocator.tick()
+    return {"status": "success", "message": f"Emergency preemption activated for {lane_id}"}
 
 
 @app.get("/api/signals/telemetry")

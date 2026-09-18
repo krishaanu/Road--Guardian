@@ -84,6 +84,33 @@ export const JunctionSimulator: React.FC = () => {
     }
   };
 
+  const handleTestPreemption = async (laneId: string) => {
+    try {
+      try {
+        await fetch(`/api/signals/preempt?lane_id=${encodeURIComponent(laneId)}`, {
+          method: 'POST',
+        });
+      } catch {
+        await fetch(`http://127.0.0.1:8000/api/signals/preempt?lane_id=${encodeURIComponent(laneId)}`, {
+          method: 'POST',
+        });
+      }
+      // Trigger local state refresh
+      let res;
+      try {
+        res = await fetch('/api/signals/telemetry');
+      } catch {
+        res = await fetch('http://127.0.0.1:8000/api/signals/telemetry');
+      }
+      const data = await res.json();
+      if (data.status === 'success' && data.snapshot) {
+        setSnapshot(data.snapshot);
+      }
+    } catch (err) {
+      console.error('Failed to trigger preemption:', err);
+    }
+  };
+
   const lanes = ['LANE_1', 'LANE_2', 'LANE_3', 'LANE_4'];
 
   return (
@@ -166,6 +193,16 @@ export const JunctionSimulator: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => handleTestPreemption(laneId)}
+                className="w-full mt-3 py-1.5 px-3 rounded-lg text-xs font-mono font-bold transition-all bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                title="Force Emergency Preemption (Green Signal Override)"
+              >
+                <span>⚡</span>
+                <span>Test Preemption</span>
+              </button>
             </div>
           );
         })}

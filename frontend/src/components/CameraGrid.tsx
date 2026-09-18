@@ -69,11 +69,54 @@ export const CameraGrid: React.FC<CameraGridProps> = ({
       return;
     }
 
+    const newCamId = `CAM_${Math.floor(1000 + Math.random() * 9000)}`;
+    const formData = new FormData();
+    formData.append('file', file);
+
     try {
       setIsUploading(true);
-      const result = await uploadVideo(file);
-      alert(`Video uploaded successfully! Registered camera: ${result.camera_id}`);
-      if (onRefresh) onRefresh();
+      let uploadRes;
+      try {
+        uploadRes = await fetch(`/api/upload_video?camera_id=${encodeURIComponent(newCamId)}`, {
+          method: 'POST',
+          body: formData,
+        });
+      } catch {
+        uploadRes = await fetch(`http://127.0.0.1:8000/api/upload_video?camera_id=${encodeURIComponent(newCamId)}`, {
+          method: 'POST',
+          body: formData,
+        });
+      }
+
+      const uploadData = await uploadRes.json();
+      if (uploadData.status === 'success' && uploadData.file_path) {
+        try {
+          await fetch('/api/cameras/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              camera_id: newCamId,
+              source: uploadData.file_path,
+              name: `Surveillance Feed (${file.name})`,
+              location_name: `Sector Corridor (${newCamId})`,
+            }),
+          });
+        } catch {
+          await fetch('http://127.0.0.1:8000/api/cameras/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              camera_id: newCamId,
+              source: uploadData.file_path,
+              name: `Surveillance Feed (${file.name})`,
+              location_name: `Sector Corridor (${newCamId})`,
+            }),
+          });
+        }
+        if (onRefresh) onRefresh();
+      } else {
+        throw new Error(uploadData.detail || 'Upload failed');
+      }
     } catch (err: any) {
       alert(`Video upload failed: ${err.message || 'Unknown error'}`);
     } finally {
