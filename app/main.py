@@ -224,8 +224,17 @@ def process_camera_stream(camera_id: str, raw_source: str):
                             verbose=False,
                             device=torch_device,
                         )
+                except Exception as inference_err:
+                    logger.error(f"YOLO Track Error on [{camera_id}]: {inference_err}")
+                    if torch_device != "cpu":
+                        torch_device = "cpu"
+                    preview_frame = cv2.resize(frame, (640, 360))
+                    _, jpeg = cv2.imencode(".jpg", preview_frame)
+                    latest_frames[camera_id] = jpeg.tobytes()
+                    time.sleep(0.033)
+                    continue
 
-                    if results and len(results) > 0 and results[0].boxes is not None and len(results[0].boxes) > 0:
+                if results and len(results) > 0 and results[0].boxes is not None and len(results[0].boxes) > 0:
                         boxes = results[0].boxes.xyxy.cpu().numpy()
                         track_ids = (
                             results[0].boxes.id.cpu().numpy().astype(int)
@@ -736,24 +745,34 @@ async def fetch_latest_observations(
 
 @app.get("/api/stream/{camera_id}")
 async def stream_feed(camera_id: str):
-    """Returns dynamic MJPEG stream or annotated fallback frame for invalid cameras."""
+    """
+    Zero-Crash Stream Handler.
+    Catches ALL runtime errors and guarantees continuous JPEG bytes (No HTTP 500s).
+    """
     def generate_frames():
-        blank_frame = np.zeros((360, 640, 3), dtype=np.uint8)
-        cv2.rectangle(blank_frame, (10, 10), (630, 350), (0, 0, 180), 2)
-        cv2.putText(blank_frame, f"FEED OFFLINE: {camera_id}", (30, 160), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 100, 255), 2)
-        cv2.putText(blank_frame, "Check backend process or camera source path", (30, 200), 
+        # Pre-encoded 640x360 Fallback JPEG Buffer
+        blank = np.zeros((360, 640, 3), dtype=np.uint8)
+        cv2.rectangle(blank, (10, 10), (630, 350), (0, 0, 150), 2)
+        cv2.putText(blank, f"RECONNECTING STREAM: {camera_id}", (40, 170), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
+        cv2.putText(blank, "Initializing analytics processing handle...", (40, 210), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-        _, blank_jpeg = cv2.imencode(".jpg", blank_frame)
-        fallback_bytes = blank_jpeg.tobytes()
+        _, default_jpeg = cv2.imencode(".jpg", blank)
+        fallback_bytes = default_jpeg.tobytes()
 
         while True:
             try:
-                frame_data = latest_frames.get(camera_id) or fallback_bytes
+                # Safely grab frame buffer without throwing KeyError
+                frame_bytes = latest_frames.get(camera_id) if isinstance(latest_frames, dict) else None
+                out_bytes = frame_bytes if frame_bytes is not None else fallback_bytes
+
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n\r\n' + out_bytes + b'\r\n')
                 time.sleep(0.033)
-            except Exception:
+            except Exception as stream_err:
+                logger.error(f"Stream error on {camera_id}: {stream_err}")
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + fallback_bytes + b'\r\n')
                 time.sleep(0.1)
 
     return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")

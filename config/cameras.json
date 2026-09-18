@@ -4,7 +4,7 @@
       "id": "CAMERA_01",
       "name": "NH-44 Mahoba Toll Northbound",
       "location_name": "NH-44 Mahoba Toll Northbound",
-      "source": "C:/Users/krish/Downloads/demo.mp4",
+      "source": "13002160_1920_1080_60fps.mp4",
       "source_type": "video",
       "gps": [
         25.2914,
@@ -14,94 +14,55 @@
       "enabled": true
     },
     {
-      "id": "LANE_1",
-      "name": "Uploaded Video (SIM_JUNCTION_01_LANE_1_test.mp4)",
-      "location_name": "Upload: SIM_JUNCTION_01_LANE_1_test.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_1/b0a7299d_SIM_JUNCTION_01_LANE_1_test.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
-      "enabled": true
-    },
-    {
-      "id": "LANE_2",
-      "name": "Uploaded Video (SIM_JUNCTION_01_LANE_2_test.mp4)",
-      "location_name": "Upload: SIM_JUNCTION_01_LANE_2_test.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_2/7037888b_SIM_JUNCTION_01_LANE_2_test.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
-      "enabled": true
-    },
-    {
-      "id": "LANE_3",
-      "name": "Uploaded Video (SIM_JUNCTION_01_LANE_3_test.mp4)",
-      "location_name": "Upload: SIM_JUNCTION_01_LANE_3_test.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_3/7d6d2ade_SIM_JUNCTION_01_LANE_3_test.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
-      "enabled": true
-    },
-    {
       "id": "SIM_JUNCTION_01_LANE_1",
-      "name": "Uploaded Video (SIM_JUNCTION_01_LANE_1_test.mp4)",
-      "location_name": "Upload: SIM_JUNCTION_01_LANE_1_test.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_1/b0a7299d_SIM_JUNCTION_01_LANE_1_test.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
-      "enabled": true
-    },
-    {
-      "id": "SIM_JUNCTION_01_LANE_2",
-      "name": "Uploaded Video (SIM_JUNCTION_01_LANE_2_test.mp4)",
-      "location_name": "Upload: SIM_JUNCTION_01_LANE_2_test.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_2/7037888b_SIM_JUNCTION_01_LANE_2_test.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
-      "enabled": true
-    },
-    {
-      "id": "SIM_JUNCTION_01_LANE_3",
-      "name": "Uploaded Video (SIM_JUNCTION_01_LANE_3_test.mp4)",
-      "location_name": "Upload: SIM_JUNCTION_01_LANE_3_test.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_3/7d6d2ade_SIM_JUNCTION_01_LANE_3_test.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
-      "enabled": true
-    },
-    {
-      "id": "CAM_5",
-      "name": "Highway Corridor 5",
-      "location_name": "Sector 5 West",
-      "source": "uploads/sample.mp4",
+      "name": "Junction 1 - Approach Lane 1 (Expressway)",
+      "location_name": "Main Expressway Interchange",
+      "source": "uploads/WhatsApp_Video_2026-09-17_at_19.25.30.mp4",
       "source_type": "file",
       "gps": [
         25.2914,
         79.8713
       ],
       "direction_covered": "Northbound",
+      "enabled": true
+    },
+    {
+      "id": "SIM_JUNCTION_01_LANE_2",
+      "name": "Junction 1 - Approach Lane 2 (Mid Corridor)",
+      "location_name": "Main Expressway Interchange",
+      "source": "uploads/WhatsApp_Video_2026-09-17_at_19.15.03.mp4",
+      "source_type": "file",
+      "gps": [
+        25.2914,
+        79.8713
+      ],
+      "direction_covered": "Northbound",
+      "enabled": true
+    },
+    {
+      "id": "SIM_JUNCTION_01_LANE_3",
+      "name": "Junction 1 - Approach Lane 3 (Cross Avenue)",
+      "location_name": "Main Expressway Interchange",
+      "source": "uploads/WhatsApp_Video_2026-09-17_at_19.30.55.mp4",
+      "source_type": "file",
+      "gps": [
+        25.2914,
+        79.8713
+      ],
+      "direction_covered": "Northbound",
+      "enabled": true
+    },
+    {
+      "id": "CAM_UP_6621",
+      "name": "Uploaded Corridor Video",
+      "location_name": "Upload: WhatsApp Video",
+      "source": "data/uploads/d182a100_WhatsApp_Video_2026-09-17_at_19.15.03.mp4",
+      "source_type": "file",
+      "gps": [
+        25.2914,
+        79.8713
+      ],
+      "direction_covered": "Bidirectional",
       "enabled": true
     }
   ]

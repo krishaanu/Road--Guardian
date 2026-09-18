@@ -71,7 +71,7 @@ class StreamBroadcaster:
         with self.lock:
             if os.path.exists(self.config_path):
                 try:
-                    with open(self.config_path, "r") as f:
+                    with open(self.config_path, "r", encoding="utf-8-sig") as f:
                         data = json.load(f)
                     for cam in data.get("cameras", []):
                         cid = cam["id"]
@@ -95,7 +95,7 @@ class StreamBroadcaster:
         with self.lock:
             try:
                 data = {"cameras": list(self.cameras.values())}
-                with open(self.config_path, "w") as f:
+                with open(self.config_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)
             except Exception as e:
                 logger.error(f"Error saving cameras to {self.config_path}: {e}")
