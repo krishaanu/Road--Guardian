@@ -645,20 +645,18 @@ def get_alerts(limit: int = 20):
 
 
 @app.post("/api/alerts/{alert_id}/acknowledge")
+@app.post("/api/incidents/{alert_id}/acknowledge")
 def acknowledge_alert(alert_id: str):
     """Acknowledges an active incident alert."""
     ok = broadcaster.acknowledge_alert(alert_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Alert ID not found or already closed.")
     return {"status": "success", "message": f"Alert {alert_id} acknowledged by operator."}
 
 
 @app.post("/api/alerts/{alert_id}/dispatch-ambulance")
+@app.post("/api/incidents/{alert_id}/dispatch-ambulance")
 def dispatch_ambulance(alert_id: str):
     """Triggers emergency ambulance dispatch for confirmed crash incident."""
     ok = broadcaster.dispatch_ambulance(alert_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Alert ID not found.")
     return {
         "status": "success",
         "alert_id": alert_id,
