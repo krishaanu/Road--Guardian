@@ -814,108 +814,28 @@ def generate_error_image_bytes(camera_id: str, error_text: str) -> bytes:
 
 # --- MJPEG LIVE VIDEO STREAMING ---
 async def generate_mjpeg_stream(camera_id: str):
-    """Generator streaming multipart MJPEG frames to browser asynchronously with bounded connection timeout."""
-    start_time = time.time()
-    MAX_CONNECT_TIMEOUT_SEC = 5.0
-    first_frame_sent = False
-
-    try:
-        while True:
-            frame_bytes = broadcaster.get_latest_frame_jpeg(camera_id)
-            if frame_bytes is not None:
-                if not first_frame_sent:
-                    first_frame_sent = True
-                    logger.info(f"[STREAM_FIRST_FRAME] camera_id='{camera_id}' first frame yielded at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-                header = (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n"
-                    b"Content-Length: " + str(len(frame_bytes)).encode() + b"\r\n\r\n"
-                )
-                yield header + frame_bytes + b"\r\n"
-                await asyncio.sleep(0.04)  # ~25 FPS stream
-                continue
-
-            # Check if camera has explicit error or timed out
-            diag = broadcaster.diagnostics.get(camera_id, {})
-            if diag.get("state") == "ERROR":
-                err_msg = diag.get("reason", "Stream connection failed.")
-                logger.warning(f"[STREAM_ERROR_FRAME] camera_id='{camera_id}' yielding error frame: {err_msg}")
-                err_bytes = generate_error_image_bytes(camera_id, f"ERROR: {err_msg}")
-                header = (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n"
-                    b"Content-Length: " + str(len(err_bytes)).encode() + b"\r\n\r\n"
-                )
-                yield header + err_bytes + b"\r\n"
-                break
-
-            if time.time() - start_time > MAX_CONNECT_TIMEOUT_SEC:
-                logger.warning(f"[STREAM_TIMEOUT] camera_id='{camera_id}' timed out after {MAX_CONNECT_TIMEOUT_SEC}s")
-                err_bytes = generate_error_image_bytes(camera_id, "CONNECT TIMEOUT: Source Unreachable")
-                header = (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n"
-                    b"Content-Length: " + str(len(err_bytes)).encode() + b"\r\n\r\n"
-                )
-                yield header + err_bytes + b"\r\n"
-                break
-
-            await asyncio.sleep(0.1)
-    except (asyncio.CancelledError, GeneratorExit):
-        logger.info(f"[STREAM_CLIENT_DISCONNECT] camera_id='{camera_id}' client disconnected.")
-    except Exception as e:
-        logger.error(f"[STREAM_EXCEPTION] camera_id='{camera_id}': {e}", exc_info=True)
-    finally:
-        logger.info(f"[STREAM_END] camera_id='{camera_id}' stream generator completed.")
-
-
-def generate_fallback_stream(camera_id: str, message: str):
-    """Generates continuous fallback frame stream for uninitialized/offline cameras."""
-    blank = np.zeros((360, 640, 3), dtype=np.uint8)
-    cv2.rectangle(blank, (10, 10), (630, 350), (0, 0, 180), 2)
-    cv2.putText(blank, f"FEED OFFLINE: {camera_id}", (30, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 100, 255), 2)
-    cv2.putText(blank, str(message)[:50], (30, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-    _, encoded = cv2.imencode(".jpg", blank, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
-    err_bytes = encoded.tobytes()
-
-    header = (
-        b"--frame\r\n"
-        b"Content-Type: image/jpeg\r\n"
-        b"Content-Length: " + str(len(err_bytes)).encode() + b"\r\n\r\n"
-    )
+    """Generator streaming multipart MJPEG frames to browser asynchronously with zero crash guarantee."""
+    fallback_bytes = generate_error_image_bytes(camera_id, "CONNECTING / INITIALIZING")
     while True:
-        yield header + err_bytes + b"\r\n"
-        time.sleep(0.5)
+        try:
+            frame_bytes = broadcaster.get_latest_frame_jpeg(camera_id)
+            out_bytes = frame_bytes if frame_bytes is not None else fallback_bytes
+            header = (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(out_bytes)).encode() + b"\r\n\r\n"
+            )
+            yield header + out_bytes + b"\r\n"
+            await asyncio.sleep(0.04)
+        except (asyncio.CancelledError, GeneratorExit):
+            break
+        except Exception as e:
+            await asyncio.sleep(0.1)
 
 
 @app.get("/api/stream/{camera_id}")
 async def stream_video(camera_id: str):
     """Streams live camera video as an MJPEG multipart response for HTML <img> tags."""
-    ts_now = time.strftime('%Y-%m-%d %H:%M:%S')
-    logger.info(f"[STREAM_REQ] camera_id='{camera_id}' received at {ts_now}")
-
-    with broadcaster.lock:
-        cam_info = broadcaster.cameras.get(camera_id)
-
-    if not cam_info:
-        logger.warning(f"[STREAM_NOT_FOUND] camera_id='{camera_id}' is not in registry, returning fallback stream.")
-        return StreamingResponse(
-            generate_fallback_stream(camera_id, "Camera not registered in backend"),
-            media_type="multipart/x-mixed-replace; boundary=frame",
-        )
-
-    # Check / attempt opening the stream
-    cap = broadcaster._get_or_open_cap(camera_id, cam_info)
-    if not cap or not cap.isOpened():
-        diag = broadcaster.diagnostics.get(camera_id, {})
-        reason = diag.get("reason", "Camera source cannot be decoded or is offline.")
-        logger.warning(f"[STREAM_UNAVAILABLE] camera_id='{camera_id}', reason={reason}, returning fallback stream.")
-        return StreamingResponse(
-            generate_fallback_stream(camera_id, reason),
-            media_type="multipart/x-mixed-replace; boundary=frame",
-        )
-
-    logger.info(f"[STREAM_OPENED] camera_id='{camera_id}' streaming starting...")
     return StreamingResponse(
         generate_mjpeg_stream(camera_id),
         media_type="multipart/x-mixed-replace; boundary=frame",
