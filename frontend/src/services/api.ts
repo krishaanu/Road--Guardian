@@ -67,18 +67,28 @@ export async function fetchCameras(): Promise<Camera[]> {
 }
 
 export async function registerCamera(data: {
-  id: string;
-  name: string;
-  location_name: string;
+  id?: string;
+  camera_id?: string;
+  name?: string;
+  location_name?: string;
   source: string;
-  source_type: string;
-  gps: [number, number];
-  direction_covered: string;
+  source_type?: string;
+  gps?: [number, number];
+  direction_covered?: string;
 }): Promise<Camera> {
+  const cid = (data.camera_id || data.id || `CAM_${Date.now()}`).trim();
+  const payload = {
+    ...data,
+    camera_id: cid,
+    id: cid,
+    name: data.name || data.location_name || cid,
+    location_name: data.location_name || 'Main Expressway',
+    direction_covered: data.direction_covered || 'Northbound',
+  };
   const json = await safeFetchJson<{ status: string; data: Camera }>(`${API_BASE}/cameras/add`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
   return json.data;
 }
@@ -90,11 +100,13 @@ export async function addCameraStream(data: {
   name?: string;
   location_name?: string;
 }): Promise<any> {
+  const cid = (data.camera_id || data.id || `CAM_${Date.now().toString().slice(-4)}`).trim();
   const payload = {
-    camera_id: data.camera_id || data.id || `CAM_${Date.now().toString().slice(-4)}`,
+    camera_id: cid,
+    id: cid,
     source: data.source,
-    name: data.name,
-    location_name: data.location_name,
+    name: data.name || cid,
+    location_name: data.location_name || 'Main Expressway',
   };
 
   return await safeFetchJson(`${API_BASE}/cameras/add`, {

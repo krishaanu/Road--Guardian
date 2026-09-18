@@ -14,10 +14,36 @@
       "enabled": true
     },
     {
+      "id": "LANE_1",
+      "name": "Uploaded Video (WhatsApp Video 2026-09-17 at 19.25.30.mp4)",
+      "location_name": "Upload: WhatsApp Video 2026-09-17 at 19.25.30.mp4",
+      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_1/a657f57f_WhatsApp_Video_2026-09-17_at_19.25.30.mp4",
+      "source_type": "file",
+      "gps": [
+        25.2914,
+        79.8713
+      ],
+      "direction_covered": "Bidirectional",
+      "enabled": true
+    },
+    {
       "id": "SIM_JUNCTION_01_LANE_1",
       "name": "Main Expressway Interchange (Junction 1) - LANE_1",
-      "location_name": "Sector Corridor (SIM_JUNCTION_01_LANE_1)",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_1/0a4ff6f3_WhatsApp_Video_2026-09-17_at_19.30.55.mp4",
+      "location_name": "Sector Corridor",
+      "source": "uploads/SIM_JUNCTION_01_LANE_1/332959bf_WhatsApp_Video_2026-09-17_at_19.30.55.mp4",
+      "source_type": "file",
+      "gps": [
+        25.2914,
+        79.8713
+      ],
+      "direction_covered": "Northbound",
+      "enabled": true
+    },
+    {
+      "id": "SIM_JUNCTION_01_LANE_2",
+      "name": "Main Expressway Interchange (Junction 1) - LANE_2",
+      "location_name": "Sector Corridor",
+      "source": "uploads/SIM_JUNCTION_01_LANE_2/afeb5e33_WhatsApp_Video_2026-09-17_at_19.25.30.mp4",
       "source_type": "file",
       "gps": [
         25.2914,
@@ -29,40 +55,14 @@
     {
       "id": "SIM_JUNCTION_01_LANE_3",
       "name": "Main Expressway Interchange (Junction 1) - LANE_3",
-      "location_name": "Sector Corridor (SIM_JUNCTION_01_LANE_3)",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_3/ac568dc4_WhatsApp_Video_2026-09-17_at_19.15.03.mp4",
+      "location_name": "Sector Corridor",
+      "source": "uploads/SIM_JUNCTION_01_LANE_3/82683c79_WhatsApp_Video_2026-09-17_at_19.25.30.mp4",
       "source_type": "file",
       "gps": [
         25.2914,
         79.8713
       ],
       "direction_covered": "Northbound",
-      "enabled": true
-    },
-    {
-      "id": "LANE_1",
-      "name": "Uploaded Video (WhatsApp Video 2026-09-17 at 19.30.55.mp4)",
-      "location_name": "Upload: WhatsApp Video 2026-09-17 at 19.30.55.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_1/0a4ff6f3_WhatsApp_Video_2026-09-17_at_19.30.55.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
-      "enabled": true
-    },
-    {
-      "id": "LANE_2",
-      "name": "Uploaded Video (WhatsApp Video 2026-09-17 at 19.25.30.mp4)",
-      "location_name": "Upload: WhatsApp Video 2026-09-17 at 19.25.30.mp4",
-      "source": "C:/Users/krish/RoadGuardian/data/uploads/SIM_JUNCTION_01_LANE_2/784d9c91_WhatsApp_Video_2026-09-17_at_19.25.30.mp4",
-      "source_type": "file",
-      "gps": [
-        25.2914,
-        79.8713
-      ],
-      "direction_covered": "Bidirectional",
       "enabled": true
     }
   ]

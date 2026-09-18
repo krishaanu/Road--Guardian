@@ -3,18 +3,28 @@ from typing import Dict, Any, Optional
 
 class SignalAllocator:
     """
-    State-machine signal allocator enforcing 20s Max Green holds,
-    2s Yellow transitions, and 5s Safety Hold Emergency Preemption.
+    Autonomous Adaptive Signal State Machine with:
+    - 10.0s Minimum Green Hold (prevents rapid accident-prone toggling)
+    - 3-Vehicle Hysteresis Threshold (prevents oscillating switches on minor fluctuations)
+    - 2.0s Yellow Transition Safety Buffer
+    - Immediate Emergency Vehicle Preemption Override
     """
-    def __init__(self, green_hold_seconds: float = 20.0, yellow_hold_seconds: float = 2.0, min_safety_hold_seconds: float = 5.0):
-        self.GREEN_HOLD_SECONDS = green_hold_seconds
+    def __init__(
+        self,
+        green_hold_seconds: float = 10.0,
+        yellow_hold_seconds: float = 2.0,
+        min_safety_hold_seconds: float = 5.0,
+        hysteresis_threshold: int = 3
+    ):
+        self.MIN_GREEN_HOLD_SEC = green_hold_seconds
         self.YELLOW_HOLD_SECONDS = yellow_hold_seconds
         self.MIN_SAFETY_HOLD_SECONDS = min_safety_hold_seconds
+        self.HYSTERESIS_THRESHOLD = hysteresis_threshold
 
         self.lane_densities: Dict[str, int] = {}
         self.lane_special_vehicles: Dict[str, bool] = {}
         
-        self.active_green_lane: Optional[str] = "LANE_1"
+        self.active_green_lane: str = "LANE_1"
         self.current_state: str = "GREEN"  # "GREEN", "YELLOW"
         self.state_start_time: float = time.time()
         self.last_served_lane: Optional[str] = None
@@ -34,17 +44,16 @@ class SignalAllocator:
                 self.lane_densities[l] = 0
                 self.lane_special_vehicles[l] = False
 
-        # Emergency Preemption Evaluation (Requires 5s minimum green hold)
+        # 1. Emergency Preemption Evaluation
         preempting_lane = None
-        if elapsed >= self.MIN_SAFETY_HOLD_SECONDS and self.current_state == "GREEN":
-            special_candidates = [
-                l for l, active in self.lane_special_vehicles.items() 
-                if active and l != self.active_green_lane
-            ]
-            if special_candidates:
-                preempting_lane = max(special_candidates, key=lambda l: self.lane_densities.get(l, 0))
+        special_candidates = [
+            l for l, active in self.lane_special_vehicles.items() 
+            if active and l != self.active_green_lane
+        ]
+        if special_candidates and (elapsed >= self.MIN_SAFETY_HOLD_SECONDS or self.current_state == "YELLOW"):
+            preempting_lane = max(special_candidates, key=lambda l: self.lane_densities.get(l, 0))
 
-        # Handle Yellow & Green Transitions
+        # 2. State Machine Transitions
         if self.current_state == "YELLOW":
             if elapsed >= self.YELLOW_HOLD_SECONDS:
                 self.current_state = "GREEN"
@@ -53,16 +62,21 @@ class SignalAllocator:
                 self.state_start_time = now
 
         elif self.current_state == "GREEN":
+            # Emergency vehicle gets immediate override
             if preempting_lane:
                 self.current_state = "YELLOW"
                 self.pending_next_lane = preempting_lane
                 self.last_served_lane = self.active_green_lane
                 self.state_start_time = now
-            elif elapsed >= self.GREEN_HOLD_SECONDS:
-                next_lane = self.get_highest_density_lane(exclude=[self.active_green_lane])
-                if next_lane != self.active_green_lane:
+            elif elapsed >= self.MIN_GREEN_HOLD_SEC:
+                current_count = self.lane_densities.get(self.active_green_lane, 0)
+                highest_lane = self.get_highest_density_lane(exclude=[self.active_green_lane])
+                highest_count = self.lane_densities.get(highest_lane, 0)
+
+                # Switch ONLY if competing lane exceeds current lane by hysteresis margin
+                if highest_lane != self.active_green_lane and highest_count >= (current_count + self.HYSTERESIS_THRESHOLD):
                     self.current_state = "YELLOW"
-                    self.pending_next_lane = next_lane
+                    self.pending_next_lane = highest_lane
                     self.last_served_lane = self.active_green_lane
                     self.state_start_time = now
 
@@ -82,7 +96,7 @@ class SignalAllocator:
         if self.current_state == "YELLOW":
             remaining_timer = max(1, int(round(self.YELLOW_HOLD_SECONDS - elapsed)))
         else:
-            remaining_timer = max(1, int(round(self.GREEN_HOLD_SECONDS - elapsed)))
+            remaining_timer = max(1, int(round(self.MIN_GREEN_HOLD_SEC - elapsed)))
 
         for lane_id, count in self.lane_densities.items():
             if self.current_state == "YELLOW":

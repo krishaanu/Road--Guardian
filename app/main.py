@@ -131,13 +131,18 @@ CLASS_NAME_MAP = {
 }
 
 class AddCameraPayload(BaseModel):
-    camera_id: str
+    camera_id: Optional[str] = None
+    id: Optional[str] = None
     name: Optional[str] = None
-    location_name: Optional[str] = None
+    location_name: Optional[str] = "Main Expressway"
     source: str
     source_type: Optional[str] = "video"
     direction_covered: Optional[str] = "Northbound"
     gps: Optional[List[float]] = [25.2914, 79.8713]
+
+    class Config:
+        populate_by_name = True
+        extra = "allow"
 
 
 def process_camera_stream(camera_id: str, raw_source: str):
@@ -629,7 +634,8 @@ async def list_registered_cameras():
 @app.post("/api/cameras/add")
 async def register_camera_stream(payload: AddCameraPayload):
     """Registers camera feed and launches independent analytics thread."""
-    cam_id = payload.camera_id.strip()
+    raw_id = payload.camera_id or payload.id or f"CAM_{int(time.time())}"
+    cam_id = raw_id.strip().replace(" ", "_").upper()
     src = payload.source.strip()
 
     if not cam_id or not src:

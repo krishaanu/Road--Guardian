@@ -12,13 +12,25 @@ class DatabaseManager:
     def __init__(self, db_path: str = "data/roadguardian.db"):
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self._enable_wal()
         self._initialize_schema()
         logger.info(f"Database initialized at {self.db_path}")
 
+    def _enable_wal(self):
+        """Enables Write-Ahead Logging (WAL) and busy timeout to prevent database locks."""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA busy_timeout=5000;")
+            conn.close()
+        except Exception as e:
+            logger.warning(f"WAL init warning: {e}")
+
     def get_connection(self) -> sqlite3.Connection:
         """Returns a raw SQLite connection handle configured to return dictionary-style rows."""
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=5000;")
         return conn
 
     def _initialize_schema(self):
