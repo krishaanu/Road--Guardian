@@ -12,6 +12,7 @@ os.chdir(PROJECT_ROOT)
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "threads;1"
 os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
 
+import asyncio
 import time
 import json
 import logging
@@ -85,15 +86,19 @@ stream_errors: Dict[str, str] = {}
 active_alerts: List[Dict[str, Any]] = []
 
 def stop_and_release_camera(camera_id: str):
-    """Safely terminates active camera worker thread and closes hardware capture handle."""
+    """Guarantees handle release and thread exit before re-binding a stream handle."""
     if camera_id in active_camera_threads:
         active_camera_threads[camera_id] = False
-    cap = active_captures.pop(camera_id, None)
-    if cap:
+        time.sleep(0.15)  # Allow thread loop to terminate
+
+    if camera_id in active_captures:
         try:
-            release_capture_handle(cap)
+            cap = active_captures.pop(camera_id, None)
+            if cap:
+                release_capture_handle(cap)
         except Exception as e:
-            logger.warning(f"Error releasing capture handle for {camera_id}: {e}")
+            logger.error(f"Error releasing capture for {camera_id}: {e}")
+
     latest_frames.pop(camera_id, None)
     active_camera_counts.pop(camera_id, None)
     stream_errors.pop(camera_id, None)
@@ -251,7 +256,8 @@ def process_camera_stream(camera_id: str, raw_source: str):
                     time.sleep(0.033)
                     continue
 
-                if results and len(results) > 0 and results[0].boxes is not None and len(results[0].boxes) > 0:
+                try:
+                    if results and len(results) > 0 and results[0].boxes is not None and len(results[0].boxes) > 0:
                         boxes = results[0].boxes.xyxy.cpu().numpy()
                         track_ids = (
                             results[0].boxes.id.cpu().numpy().astype(int)
