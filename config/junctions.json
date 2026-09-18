@@ -1,0 +1,40 @@
+{
+  "junctions": [
+    {
+      "junction_id": "J1",
+      "name": "Central Crossing (MG Road x Brigade Road)",
+      "min_green": 15,
+      "max_green": 90,
+      "clearance_sec": 5.0,
+      "capacity_per_lane": 25,
+      "phase_a": {
+        "camera_id": "cam_01",
+        "name": "North-South Corridor",
+        "lanes": 3
+      },
+      "phase_b": {
+        "camera_id": "cam_02",
+        "name": "East-West Corridor",
+        "lanes": 2
+      }
+    },
+    {
+      "junction_id": "J2",
+      "name": "Outer Ring Road Junction",
+      "min_green": 15,
+      "max_green": 90,
+      "clearance_sec": 5.0,
+      "capacity_per_lane": 30,
+      "phase_a": {
+        "camera_id": "cam_03",
+        "name": "Flyover Approach",
+        "lanes": 4
+      },
+      "phase_b": {
+        "camera_id": "cam_04",
+        "name": "Underpass Approach",
+        "lanes": 2
+      }
+    }
+  ]
+}

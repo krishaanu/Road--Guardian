@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 9
+names: ['Auto', 'Bike', 'Bus', 'Car', 'Scooty', 'Taxi', 'Tempo', 'Toto', 'Truck']
+
+roboflow:
+  workspace: krishaanu-budholiya
+  project: indian-vehicles-detection-n4kya-qb7rq
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/krishaanu-budholiya/indian-vehicles-detection-n4kya-qb7rq/dataset/1
